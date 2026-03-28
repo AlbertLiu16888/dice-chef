@@ -9,7 +9,7 @@
 <body>
   <div id="app">
     <!-- Header -->
-    <header id="game-header">
+    <header id="game-header" class="hidden">
       <div class="header-left">
         <span class="logo">🎲🍳</span>
         <h1>骰子廚神</h1>
@@ -38,15 +38,20 @@
     </div>
 
     <!-- Start Screen -->
-    <div id="start-screen">
+    <div id="screen-start" class="screen active">
       <div class="start-content">
         <div class="start-logo">🎲🍳</div>
         <h2>骰子廚神</h2>
         <p>在 5 分鐘內收集食材、合成料理、累積最高分！</p>
-        <div class="mode-select">
-          <button id="btn-start" class="mode-btn">🎮 單人模式</button>
-          <button id="btn-start-vs" class="mode-btn vs-btn">⚔️ 對戰模式</button>
+        <div class="input-group">
+          <label for="player-name">輸入你的名稱</label>
+          <input type="text" id="player-name" maxlength="12" placeholder="玩家名稱" autocomplete="off">
         </div>
+        <div class="mode-select">
+          <button id="btn-start" class="mode-btn" disabled>🎮 單人模式</button>
+          <button id="btn-start-vs" class="mode-btn vs-btn" disabled>⚔️ 對戰模式</button>
+        </div>
+        <button id="btn-leaderboard" class="btn-secondary">🏆 排行榜</button>
         <div class="start-hints">
           <p>🎯 擲骰獲得食材 → 拖曳至料理區 → 合成美食得分</p>
           <p>⚠️ 食材不對會變成暗黑料理，全部銷毀！</p>
@@ -56,13 +61,14 @@
     </div>
 
     <!-- Game Over Screen -->
-    <div id="gameover-screen" class="hidden">
+    <div id="screen-gameover" class="screen">
       <div class="gameover-content">
         <h2>⏰ 時間到！</h2>
         <div id="gameover-solo">
           <p>你的最終得分</p>
           <div id="final-score">0</div>
           <div id="final-rank"></div>
+          <div id="secret-message-area" class="hidden"></div>
         </div>
         <div id="gameover-vs" class="hidden">
           <div class="vs-result">
@@ -78,83 +84,124 @@
           </div>
           <div id="vs-winner"></div>
         </div>
-        <button id="btn-restart">再來一局</button>
+        <button id="btn-restart" class="mode-btn">再來一局</button>
+        <button id="btn-go-home" class="btn-secondary">回首頁</button>
       </div>
     </div>
 
-    <!-- Main Game Area -->
-    <main id="game-area" class="hidden">
-      <!-- Player Area -->
-      <div id="player-area">
-        <!-- Dice Roll Zone -->
-        <section id="dice-zone">
-          <h2>🎲 擲骰區</h2>
-          <div id="dice-results"></div>
-          <button id="btn-roll">擲骰！</button>
-        </section>
-
-        <!-- Hand Zone -->
-        <section id="hand-zone">
-          <h2>🎒 自有卡牌 (<span id="hand-count">0</span>/5)</h2>
-          <div id="hand-cards"></div>
-        </section>
-
-        <!-- Cooking Zone -->
-        <section id="cooking-zone">
-          <h2>🍳 料理區</h2>
-          <div id="cooking-slots">
-            <div class="cook-slot" data-slot="0"></div>
-            <div class="cook-slot" data-slot="1"></div>
-            <div class="cook-slot" data-slot="2"></div>
-            <div class="cook-slot" data-slot="3"></div>
-            <div class="cook-slot" data-slot="4"></div>
-          </div>
-          <button id="btn-cook">🔥 料理！</button>
-        </section>
-
-        <!-- Judge Zone -->
-        <section id="judge-zone">
-          <h2>👨‍🍳 評審區</h2>
-          <div id="judge-drop" class="drop-target">
-            <p>將完成品拖曳至此換取積分</p>
-          </div>
-        </section>
-
-        <!-- Trash Zone -->
-        <section id="trash-zone">
-          <div id="trash-drop" class="drop-target">
-            <span class="trash-icon">🗑️</span>
-            <p>丟棄卡牌</p>
-          </div>
-        </section>
+    <!-- Leaderboard Screen -->
+    <div id="screen-leaderboard" class="screen">
+      <div class="leaderboard-container">
+        <h2>🏆 排行榜</h2>
+        <div id="leaderboard-list"><p class="loading">載入中...</p></div>
+        <button id="btn-lb-back" class="btn-secondary">返回</button>
       </div>
-
-      <!-- AI Opponent Area (Battle Mode) -->
-      <div id="ai-area" class="hidden">
-        <section id="ai-status">
-          <h2>🤖 AI 廚師</h2>
-          <div id="ai-hand-display"></div>
-          <div id="ai-cooking-display"></div>
-          <div id="ai-action-log"></div>
-        </section>
-      </div>
-    </main>
-
-    <!-- Recipe Book (toggle) -->
-    <button id="btn-recipe-book" class="hidden">📖</button>
-    <div id="recipe-book" class="hidden">
-      <h3>📖 食譜圖鑑</h3>
-      <div id="recipe-list"></div>
-      <button id="btn-close-book">✕</button>
     </div>
 
-    <!-- Sound Toggle -->
-    <button id="btn-sound" class="fab-btn hidden" title="音效開關">🔊</button>
+    <!-- Admin Screen -->
+    <div id="screen-admin" class="screen">
+      <div class="admin-container">
+        <h2>管理後台</h2>
+        <div class="admin-group">
+          <label>破關訊息（玩家需記下的文字）</label>
+          <input type="text" id="admin-secret" placeholder="openthedoor">
+        </div>
+        <div class="admin-group">
+          <label>過關分數門檻</label>
+          <input type="number" id="admin-threshold" placeholder="200">
+        </div>
+        <div class="admin-group">
+          <label>Google Apps Script Web App URL</label>
+          <input type="text" id="admin-api-url" placeholder="https://script.google.com/macros/s/.../exec">
+        </div>
+        <div class="admin-actions">
+          <button id="btn-admin-save" class="mode-btn">儲存設定</button>
+          <button id="btn-admin-back" class="btn-secondary">返回</button>
+        </div>
+        <p id="admin-status"></p>
+      </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="screen-game" class="screen">
+      <!-- Main Game Area -->
+      <main id="game-area">
+        <!-- Player Area -->
+        <div id="player-area">
+          <!-- Dice Roll Zone -->
+          <section id="dice-zone">
+            <h2>🎲 擲骰區</h2>
+            <div id="dice-results"></div>
+            <button id="btn-roll">擲骰！</button>
+          </section>
+
+          <!-- Hand Zone -->
+          <section id="hand-zone">
+            <h2>🎒 自有卡牌 (<span id="hand-count">0</span>/5)</h2>
+            <div id="hand-cards"></div>
+          </section>
+
+          <!-- Cooking Zone -->
+          <section id="cooking-zone">
+            <h2>🍳 料理區</h2>
+            <div id="cooking-slots">
+              <div class="cook-slot" data-slot="0"></div>
+              <div class="cook-slot" data-slot="1"></div>
+              <div class="cook-slot" data-slot="2"></div>
+              <div class="cook-slot" data-slot="3"></div>
+              <div class="cook-slot" data-slot="4"></div>
+            </div>
+            <button id="btn-cook">🔥 料理！</button>
+          </section>
+
+          <!-- Judge Zone -->
+          <section id="judge-zone">
+            <h2>👨‍🍳 評審區</h2>
+            <div id="judge-drop" class="drop-target">
+              <p>將完成品拖曳至此換取積分</p>
+            </div>
+          </section>
+
+          <!-- Trash Zone -->
+          <section id="trash-zone">
+            <div id="trash-drop" class="drop-target">
+              <span class="trash-icon">🗑️</span>
+              <p>丟棄卡牌</p>
+            </div>
+          </section>
+        </div>
+
+        <!-- AI Opponent Area (Battle Mode) -->
+        <div id="ai-area" class="hidden">
+          <section id="ai-status">
+            <h2>🤖 AI 廚師</h2>
+            <div id="ai-hand-display"></div>
+            <div id="ai-cooking-display"></div>
+            <div id="ai-action-log"></div>
+          </section>
+        </div>
+      </main>
+
+      <!-- Recipe Book (toggle) -->
+      <button id="btn-recipe-book">📖</button>
+      <div id="recipe-book" class="hidden">
+        <h3>📖 食譜圖鑑</h3>
+        <div id="recipe-list"></div>
+        <button id="btn-close-book">✕</button>
+      </div>
+    </div>
+
+    <!-- Toggle Buttons (fixed) -->
+    <div id="game-toggles" class="hidden">
+      <button id="btn-sound" class="toggle-btn" title="音效開關">🔊</button>
+      <button id="btn-vibrate" class="toggle-btn" title="震動開關">📳</button>
+    </div>
 
     <!-- Toast -->
     <div id="toast-container"></div>
   </div>
 
+  <script src="config.js"></script>
   <script src="game.js"></script>
 </body>
 </html>

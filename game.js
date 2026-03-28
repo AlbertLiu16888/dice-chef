@@ -83,14 +83,38 @@ const DATA = {
 const SFX = {
   ctx: null,
   enabled: true,
+  vibrationEnabled: true,
+  _unlocked: false,
+  canVibrate: !!(navigator.vibrate),
+
+  unlock() {
+    if (this._unlocked) return;
+    try {
+      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const buf = this.ctx.createBuffer(1, 1, 22050);
+      const src = this.ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(this.ctx.destination);
+      src.start(0);
+      this._unlocked = true;
+    } catch (e) {
+      console.warn('AudioContext unlock failed:', e);
+    }
+  },
 
   init() {
     if (this.ctx) return;
-    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    this.unlock();
+  },
+
+  _ensureCtx() {
+    if (!this.ctx) this.unlock();
+    if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+    return !!this.ctx;
   },
 
   play(type) {
-    if (!this.enabled || !this.ctx) return;
+    if (!this.enabled || !this._ensureCtx()) return;
     const now = this.ctx.currentTime;
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
@@ -202,6 +226,22 @@ const SFX = {
         osc.start(now);
         osc.stop(now + 0.05);
         break;
+      case "countdown":
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(600, now);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.linearRampToValueAtTime(0, now + 0.1);
+        osc.start(now);
+        osc.stop(now + 0.1);
+        break;
+      case "countdown_go":
+        osc.type = "square";
+        osc.frequency.setValueAtTime(880, now);
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.linearRampToValueAtTime(0, now + 0.15);
+        osc.start(now);
+        osc.stop(now + 0.15);
+        break;
     }
   },
 
@@ -209,12 +249,17 @@ const SFX = {
     this.enabled = !this.enabled;
     return this.enabled;
   },
+
+  toggleVibration() {
+    this.vibrationEnabled = !this.vibrationEnabled;
+    return this.vibrationEnabled;
+  },
 };
 
 // ===== Haptic / Vibration =====
 function vibrate(pattern) {
-  if (navigator.vibrate) {
-    navigator.vibrate(pattern);
+  if (SFX.vibrationEnabled && SFX.canVibrate) {
+    try { navigator.vibrate(pattern); } catch (e) {}
   }
 }
 
@@ -230,6 +275,7 @@ const state = {
   activeEvent: null,
   eventTimer: 0,
   uidCounter: 0,
+  playerName: "",
   // AI state (battle mode)
   ai: {
     score: 0,
@@ -246,53 +292,65 @@ function nextUid() {
 }
 
 // ===== DOM References =====
-const $ = (sel) => document.querySelector(sel);
-const $$ = (sel) => document.querySelectorAll(sel);
+const $ = (id) => document.getElementById(id);
+
+const screens = {
+  start: $("screen-start"),
+  game: $("screen-game"),
+  gameover: $("screen-gameover"),
+  leaderboard: $("screen-leaderboard"),
+  admin: $("screen-admin"),
+};
+
+function showScreen(name) {
+  Object.values(screens).forEach((s) => s.classList.remove("active"));
+  screens[name].classList.add("active");
+
+  // Show/hide header & toggles with game screen
+  const isGame = name === "game";
+  $("game-header").classList.toggle("hidden", !isGame);
+  $("game-toggles").classList.toggle("hidden", !isGame);
+}
 
 const dom = {
-  timerEl: $("#timer"),
-  scoreEl: $("#score"),
-  scoreP2: $("#score-p2"),
-  scoreVs: $("#score-vs"),
-  scoreP2Wrap: $("#score-p2-wrap"),
-  startScreen: $("#start-screen"),
-  gameoverScreen: $("#gameover-screen"),
-  gameArea: $("#game-area"),
-  playerArea: $("#player-area"),
-  btnStart: $("#btn-start"),
-  btnStartVs: $("#btn-start-vs"),
-  btnRestart: $("#btn-restart"),
-  btnRoll: $("#btn-roll"),
-  btnCook: $("#btn-cook"),
-  diceResults: $("#dice-results"),
-  handCards: $("#hand-cards"),
-  handCount: $("#hand-count"),
-  cookingSlots: $$(".cook-slot"),
-  judgeDrop: $("#judge-drop"),
-  trashDrop: $("#trash-drop"),
-  eventBanner: $("#event-banner"),
-  eventText: $("#event-text"),
-  eventTimerEl: $("#event-timer"),
-  finalScore: $("#final-score"),
-  finalRank: $("#final-rank"),
-  recipeBook: $("#recipe-book"),
-  recipeList: $("#recipe-list"),
-  btnRecipeBook: $("#btn-recipe-book"),
-  btnCloseBook: $("#btn-close-book"),
-  btnSound: $("#btn-sound"),
-  toastContainer: $("#toast-container"),
-  badgeTaiwan: $("#badge-taiwan"),
-  badgeKorea: $("#badge-korea"),
+  timerEl: $("timer"),
+  scoreEl: $("score"),
+  scoreP2: $("score-p2"),
+  scoreVs: $("score-vs"),
+  scoreP2Wrap: $("score-p2-wrap"),
+  btnStart: $("btn-start"),
+  btnStartVs: $("btn-start-vs"),
+  btnRestart: $("btn-restart"),
+  btnRoll: $("btn-roll"),
+  btnCook: $("btn-cook"),
+  diceResults: $("dice-results"),
+  handCards: $("hand-cards"),
+  handCount: $("hand-count"),
+  cookingSlots: document.querySelectorAll(".cook-slot"),
+  judgeDrop: $("judge-drop"),
+  trashDrop: $("trash-drop"),
+  eventBanner: $("event-banner"),
+  eventText: $("event-text"),
+  eventTimerEl: $("event-timer"),
+  finalScore: $("final-score"),
+  finalRank: $("final-rank"),
+  recipeBook: $("recipe-book"),
+  recipeList: $("recipe-list"),
+  btnRecipeBook: $("btn-recipe-book"),
+  btnCloseBook: $("btn-close-book"),
+  toastContainer: $("toast-container"),
+  badgeTaiwan: $("badge-taiwan"),
+  badgeKorea: $("badge-korea"),
   // Battle mode
-  aiArea: $("#ai-area"),
-  aiHandDisplay: $("#ai-hand-display"),
-  aiCookingDisplay: $("#ai-cooking-display"),
-  aiActionLog: $("#ai-action-log"),
-  gameoverSolo: $("#gameover-solo"),
-  gameoverVs: $("#gameover-vs"),
-  vsP1Score: $("#vs-p1-score"),
-  vsP2Score: $("#vs-p2-score"),
-  vsWinner: $("#vs-winner"),
+  aiArea: $("ai-area"),
+  aiHandDisplay: $("ai-hand-display"),
+  aiCookingDisplay: $("ai-cooking-display"),
+  aiActionLog: $("ai-action-log"),
+  gameoverSolo: $("gameover-solo"),
+  gameoverVs: $("gameover-vs"),
+  vsP1Score: $("vs-p1-score"),
+  vsP2Score: $("vs-p2-score"),
+  vsWinner: $("vs-winner"),
 };
 
 // ===== Helpers =====
@@ -301,6 +359,12 @@ function getIngredientById(id) {
     DATA.ingredients.basic.find((i) => i.id === id) ||
     DATA.ingredients.advanced.find((i) => i.id === id)
   );
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
 }
 
 function makeCardObj(ingredientId, cardType = "ingredient") {
@@ -431,7 +495,6 @@ function renderHand() {
     el.draggable = true;
     el.addEventListener("dragstart", onDragStart);
     el.addEventListener("dragend", onDragEnd);
-    // Touch drag support
     el.addEventListener("touchstart", onTouchStart, { passive: false });
     dom.handCards.appendChild(el);
   });
@@ -876,23 +939,18 @@ const AI = {
     ai.nextActionIn--;
     if (ai.nextActionIn > 0) return;
 
-    // AI decision cycle: every 3-6 seconds
     ai.nextActionIn = 3 + Math.floor(Math.random() * 4);
 
-    // Strategy: try to cook if possible, otherwise gather ingredients
     const cookResult = this.tryCook();
     if (cookResult) return;
 
-    // Gather: simulate rolling dice and picking one
     if (ai.hand.length < 5) {
       const picks = weightedRandom(3);
-      // Pick the one most useful for a recipe
       const best = this.pickBest(picks);
       const card = makeCardObj(best);
       ai.hand.push(card);
       this.log(`抽到 ${card.icon}${card.name}`);
     } else {
-      // Hand full, discard least useful
       const worst = this.findLeastUseful();
       if (worst >= 0) {
         const removed = ai.hand.splice(worst, 1)[0];
@@ -905,7 +963,6 @@ const AI = {
   tryCook() {
     const ai = state.ai;
     const hand = ai.hand;
-    // Try all subsets of hand to find a matching recipe
     const availableRecipes = DATA.recipes.filter(
       (r) =>
         r.category === "none" || ai.unlockedCategories.includes(r.category)
@@ -926,13 +983,11 @@ const AI = {
         used.push(idx);
       }
       if (found) {
-        // Remove used cards (in reverse to maintain indices)
         used.sort((a, b) => b - a).forEach((i) => hand.splice(i, 1));
 
         if (recipe.type === "food") {
           ai.score += recipe.points;
           this.log(`🍽️ 完成「${recipe.name}」+${recipe.points}⭐`, "score");
-          // Check AI unlocks
           if (ai.score >= 50 && !ai.unlockedCategories.includes("taiwan")) {
             ai.unlockedCategories.push("taiwan");
             this.log("解鎖台灣料理！", "score");
@@ -957,7 +1012,6 @@ const AI = {
   },
 
   pickBest(options) {
-    // Count which ingredients we need most for available recipes
     const ai = state.ai;
     const scores = {};
     const available = DATA.recipes.filter(
@@ -969,7 +1023,6 @@ const AI = {
         scores[ing] = (scores[ing] || 0) + (r.points || 5);
       }
     }
-    // Prefer ingredients we already have partial matches for
     for (const c of ai.hand) {
       if (scores[c.id]) scores[c.id] += 3;
     }
@@ -986,7 +1039,6 @@ const AI = {
 
   findLeastUseful() {
     const ai = state.ai;
-    // Find card that appears in fewest available recipes
     const counts = {};
     const available = DATA.recipes.filter(
       (r) =>
@@ -1016,16 +1068,13 @@ const AI = {
 
   renderAI() {
     const ai = state.ai;
-    // Hand display
     dom.aiHandDisplay.innerHTML = ai.hand
       .map((c) => `<div class="ai-mini-card">${c.icon}</div>`)
       .join("");
-    // Cooking display
     dom.aiCookingDisplay.textContent =
       ai.hand.length === 0
         ? "收集食材中..."
         : `持有 ${ai.hand.length} 張卡牌`;
-    // Log
     dom.aiActionLog.innerHTML = ai.logs
       .map(
         (l) =>
@@ -1088,6 +1137,58 @@ function startTimer() {
   }, 1000);
 }
 
+// ===== Countdown =====
+function countdown(n, callback) {
+  const overlay = document.createElement("div");
+  overlay.id = "countdown-overlay";
+  document.body.appendChild(overlay);
+
+  let count = n;
+  function tick() {
+    if (count > 0) {
+      overlay.innerHTML = `${count}<div class="sub">拖曳食材至料理區合成美食</div>`;
+      overlay.style.animation = "none";
+      overlay.offsetHeight;
+      overlay.style.animation = "countPulse 0.6s ease";
+      SFX.play("countdown");
+      vibrate(15);
+      count--;
+      setTimeout(tick, 800);
+    } else {
+      overlay.textContent = "開始料理！";
+      overlay.style.color = "#4ade80";
+      SFX.play("countdown_go");
+      vibrate(40);
+      setTimeout(() => {
+        overlay.remove();
+        callback();
+      }, 600);
+    }
+  }
+  tick();
+}
+
+// ===== Secret Messages =====
+function showSecretMessages(name) {
+  const area = $("secret-message-area");
+  area.classList.remove("hidden");
+  area.innerHTML = "";
+
+  const messages = [
+    `恭喜「${name}」挑戰成功！`,
+    "請記下接下來的文字訊息",
+    `輸入破關訊息「${CONFIG.secretMessage}」獲得積分`,
+  ];
+
+  messages.forEach((msg, i) => {
+    const line = document.createElement("div");
+    line.className = "fade-line";
+    line.textContent = msg;
+    line.style.animationDelay = `${i * 1.5 + 0.5}s`;
+    area.appendChild(line);
+  });
+}
+
 // ===== Game Flow =====
 function startGame(mode) {
   SFX.init();
@@ -1109,11 +1210,7 @@ function startGame(mode) {
   const startIds = weightedRandom(3);
   startIds.forEach((id) => state.handCards.push(makeCardObj(id)));
 
-  dom.startScreen.classList.add("hidden");
-  dom.gameoverScreen.classList.add("hidden");
-  dom.gameArea.classList.remove("hidden");
-  dom.btnRecipeBook.classList.remove("hidden");
-  dom.btnSound.classList.remove("hidden");
+  showScreen("game");
   dom.btnRoll.disabled = false;
   dom.eventBanner.classList.add("hidden");
 
@@ -1137,7 +1234,11 @@ function startGame(mode) {
   renderRecipeBook();
 
   if (gameInterval) clearInterval(gameInterval);
-  startTimer();
+
+  // Countdown then start timer
+  countdown(3, () => {
+    startTimer();
+  });
 }
 
 function endGame() {
@@ -1146,11 +1247,7 @@ function endGame() {
   SFX.play("gameover");
   vibrate([100, 50, 100, 50, 200]);
 
-  dom.gameArea.classList.add("hidden");
-  dom.btnRecipeBook.classList.add("hidden");
-  dom.btnSound.classList.add("hidden");
   dom.recipeBook.classList.add("hidden");
-  dom.gameoverScreen.classList.remove("hidden");
 
   if (state.mode === "solo") {
     dom.gameoverSolo.classList.remove("hidden");
@@ -1163,6 +1260,16 @@ function endGame() {
     else if (state.score >= 20) rank = "🥉 料理新手";
     else rank = "🍳 繼續加油！";
     dom.finalRank.textContent = rank;
+
+    // Check pass & show secret message
+    if (state.score >= CONFIG.passThreshold) {
+      showSecretMessages(state.playerName);
+    } else {
+      $("secret-message-area").classList.add("hidden");
+    }
+
+    // Submit score to leaderboard
+    Leaderboard.submit(state.playerName, state.score);
   } else {
     dom.gameoverSolo.classList.add("hidden");
     dom.gameoverVs.classList.remove("hidden");
@@ -1178,16 +1285,79 @@ function endGame() {
       dom.vsWinner.textContent = "🤝 平手！";
       dom.vsWinner.style.color = "#f5c518";
     }
+
+    // Submit score for vs mode too
+    Leaderboard.submit(state.playerName, state.score);
   }
+
+  showScreen("gameover");
+}
+
+// ===== Leaderboard UI =====
+async function loadLeaderboard() {
+  const list = $("leaderboard-list");
+  list.innerHTML = '<p class="loading">載入中...</p>';
+
+  const top = await Leaderboard.load();
+
+  if (top.length === 0) {
+    list.innerHTML = '<p class="loading">尚無紀錄</p>';
+    return;
+  }
+
+  list.innerHTML = top
+    .map(
+      (s, i) => `
+    <div class="lb-row">
+      <span class="lb-rank">${i + 1}</span>
+      <span class="lb-name">${escapeHtml(s.name)}</span>
+      <span class="lb-score">${s.score.toLocaleString()}</span>
+    </div>
+  `
+    )
+    .join("");
 }
 
 // ===== Event Listeners =====
-dom.btnStart.addEventListener("click", () => startGame("solo"));
-dom.btnStartVs.addEventListener("click", () => startGame("vs"));
-dom.btnRestart.addEventListener("click", () => {
-  dom.gameoverScreen.classList.add("hidden");
-  dom.startScreen.classList.remove("hidden");
+
+// Name input
+const nameInput = $("player-name");
+nameInput.addEventListener("input", () => {
+  const hasName = nameInput.value.trim().length > 0;
+  dom.btnStart.disabled = !hasName;
+  dom.btnStartVs.disabled = !hasName;
 });
+
+nameInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && nameInput.value.trim()) {
+    state.playerName = nameInput.value.trim();
+    SFX.unlock();
+    startGame("solo");
+  }
+});
+
+dom.btnStart.addEventListener("click", () => {
+  state.playerName = nameInput.value.trim();
+  if (!state.playerName) return;
+  SFX.unlock();
+  startGame("solo");
+});
+
+dom.btnStartVs.addEventListener("click", () => {
+  state.playerName = nameInput.value.trim();
+  if (!state.playerName) return;
+  SFX.unlock();
+  startGame("vs");
+});
+
+dom.btnRestart.addEventListener("click", () => {
+  startGame(state.mode);
+});
+
+$("btn-go-home").addEventListener("click", () => {
+  showScreen("start");
+});
+
 dom.btnRoll.addEventListener("click", rollDice);
 dom.btnCook.addEventListener("click", cook);
 
@@ -1199,9 +1369,68 @@ dom.btnCloseBook.addEventListener("click", () => {
   dom.recipeBook.classList.add("hidden");
 });
 
-dom.btnSound.addEventListener("click", () => {
+// Sound & Vibration Toggles
+$("btn-sound").addEventListener("click", () => {
   const on = SFX.toggle();
-  dom.btnSound.textContent = on ? "🔊" : "🔇";
+  $("btn-sound").textContent = on ? "🔊" : "🔇";
+  $("btn-sound").classList.toggle("off", !on);
 });
 
+$("btn-vibrate").addEventListener("click", () => {
+  const on = SFX.toggleVibration();
+  $("btn-vibrate").textContent = on ? "📳" : "📴";
+  $("btn-vibrate").classList.toggle("off", !on);
+});
+
+// Leaderboard
+$("btn-leaderboard").addEventListener("click", () => {
+  showScreen("leaderboard");
+  loadLeaderboard();
+});
+
+$("btn-lb-back").addEventListener("click", () => {
+  showScreen("start");
+});
+
+// Admin
+async function checkAdminMode() {
+  if (window.location.hash === "#admin") {
+    showScreen("admin");
+    await CONFIG.loadRemoteConfig();
+    $("admin-secret").value = CONFIG.secretMessage;
+    $("admin-threshold").value = CONFIG.passThreshold;
+    $("admin-api-url").value = CONFIG.apiUrl;
+  }
+}
+window.addEventListener("hashchange", checkAdminMode);
+checkAdminMode();
+
+$("btn-admin-save").addEventListener("click", async () => {
+  const secret = $("admin-secret").value;
+  const threshold = $("admin-threshold").value;
+
+  localStorage.setItem("dc_secret", secret);
+  localStorage.setItem("dc_threshold", threshold);
+  localStorage.setItem("dc_api_url", $("admin-api-url").value);
+
+  $("admin-status").textContent = "儲存中...";
+  try {
+    await CONFIG.saveRemoteConfig("secretMessage", secret);
+    await CONFIG.saveRemoteConfig("passThreshold", threshold);
+    $("admin-status").textContent = "✅ 設定已儲存（本機 + 雲端）！";
+  } catch (e) {
+    $("admin-status").textContent = "⚠️ 本機已存，雲端同步失敗";
+  }
+  setTimeout(() => ($("admin-status").textContent = ""), 3000);
+});
+
+$("btn-admin-back").addEventListener("click", () => {
+  window.location.hash = "";
+  showScreen("start");
+});
+
+// Load remote config on startup
+CONFIG.loadRemoteConfig();
+
+// Setup
 setupDropZones();

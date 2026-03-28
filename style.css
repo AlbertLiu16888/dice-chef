@@ -20,18 +20,47 @@
   --shadow: 0 4px 20px rgba(0,0,0,0.4);
 }
 
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
 body {
   font-family: 'Segoe UI', 'Noto Sans TC', sans-serif;
   background: var(--bg);
   color: var(--text);
-  min-height: 100vh;
-  overflow-x: hidden;
 }
 
 .hidden { display: none !important; }
 
+/* ===== Screen System ===== */
+.screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+  z-index: 1;
+  overflow-y: auto;
+}
+
+.screen.active {
+  opacity: 1;
+  pointer-events: auto;
+  z-index: 10;
+}
+
 /* ===== Header ===== */
 #game-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -40,6 +69,7 @@ body {
   border-bottom: 2px solid var(--accent);
   flex-wrap: wrap;
   gap: 8px;
+  z-index: 20;
 }
 
 .header-left {
@@ -98,6 +128,10 @@ body {
 
 /* ===== Event Banner ===== */
 #event-banner {
+  position: fixed;
+  top: 60px;
+  left: 0;
+  right: 0;
   text-align: center;
   padding: 8px;
   background: linear-gradient(90deg, #e94560, #f5c518);
@@ -105,6 +139,7 @@ body {
   font-weight: bold;
   font-size: 0.95rem;
   animation: bannerPulse 1s ease infinite alternate;
+  z-index: 19;
 }
 
 @keyframes bannerPulse {
@@ -112,21 +147,12 @@ body {
   to { opacity: 1; }
 }
 
-/* ===== Start / GameOver Screens ===== */
-#start-screen, #gameover-screen {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(10,10,30,0.95);
-  z-index: 100;
-}
-
-.start-content, .gameover-content {
+/* ===== Start Screen ===== */
+.start-content, .gameover-content, .leaderboard-container, .admin-container {
   text-align: center;
   max-width: 480px;
   padding: 40px;
+  width: 100%;
 }
 
 .start-logo { font-size: 4rem; margin-bottom: 12px; }
@@ -141,11 +167,40 @@ body {
   line-height: 1.8;
 }
 
+/* Input Group */
+.input-group {
+  margin-bottom: 20px;
+}
+
+.input-group label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
+.input-group input {
+  width: 240px;
+  padding: 0.7rem 1rem;
+  border: 2px solid #333;
+  border-radius: 8px;
+  background: #111;
+  color: #fff;
+  font-size: 1.1rem;
+  text-align: center;
+  outline: none;
+  transition: border-color 0.3s;
+}
+
+.input-group input:focus { border-color: var(--gold); }
+
+/* Buttons */
 .mode-select {
   display: flex;
   gap: 16px;
   justify-content: center;
   flex-wrap: wrap;
+  margin-bottom: 12px;
 }
 
 .mode-btn {
@@ -156,38 +211,47 @@ body {
   background: var(--accent);
   color: #fff;
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
 }
 
-.mode-btn:hover {
+.mode-btn:hover:not(:disabled) {
   transform: scale(1.05);
   box-shadow: 0 0 20px rgba(233,69,96,0.6);
+}
+
+.mode-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .vs-btn {
   background: linear-gradient(135deg, var(--purple), var(--accent));
 }
 
-.vs-btn:hover {
+.vs-btn:hover:not(:disabled) {
   box-shadow: 0 0 20px rgba(167,139,250,0.6);
 }
 
-#btn-restart {
-  padding: 14px 48px;
-  font-size: 1.3rem;
-  border: none;
-  border-radius: var(--radius);
-  background: var(--accent);
-  color: #fff;
+.btn-secondary {
+  display: block;
+  width: 240px;
+  margin: 0.6rem auto;
+  padding: 0.7rem;
+  background: transparent;
+  color: #888;
+  border: 1px solid #333;
+  border-radius: 8px;
+  font-size: 1rem;
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: border-color 0.3s, color 0.3s;
 }
 
-#btn-restart:hover {
-  transform: scale(1.05);
-  box-shadow: 0 0 20px rgba(233,69,96,0.6);
+.btn-secondary:hover {
+  border-color: #666;
+  color: #ccc;
 }
 
+/* Game Over */
 #final-score {
   font-size: 4rem;
   color: var(--gold);
@@ -221,13 +285,102 @@ body {
   margin-bottom: 20px;
 }
 
+/* Secret Message */
+#secret-message-area {
+  margin: 20px 0;
+}
+
+#secret-message-area .fade-line {
+  opacity: 0;
+  animation: fadeInLine 1s ease forwards;
+  font-size: 1.05rem;
+  margin-bottom: 8px;
+}
+
+@keyframes fadeInLine {
+  to { opacity: 1; }
+}
+
+/* ===== Leaderboard ===== */
+.leaderboard-container h2 { margin-bottom: 16px; }
+
+#leaderboard-list {
+  max-height: 60vh;
+  overflow-y: auto;
+  margin-bottom: 16px;
+}
+
+.lb-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem 0.8rem;
+  border-bottom: 1px solid #1a1a1a;
+}
+
+.lb-row:nth-child(1) .lb-rank::after { content: ' 🥇'; }
+.lb-row:nth-child(2) .lb-rank::after { content: ' 🥈'; }
+.lb-row:nth-child(3) .lb-rank::after { content: ' 🥉'; }
+
+.lb-rank { width: 3rem; text-align: center; }
+.lb-name { flex: 1; text-align: left; margin-left: 0.8rem; }
+.lb-score { font-weight: bold; color: var(--gold); }
+
+.loading { color: var(--text-dim); padding: 2rem; }
+
+/* ===== Admin ===== */
+.admin-container h2 { margin-bottom: 20px; }
+
+.admin-group {
+  margin-bottom: 16px;
+  text-align: left;
+}
+
+.admin-group label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
+.admin-group input {
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  border: 2px solid #333;
+  border-radius: 8px;
+  background: #111;
+  color: #fff;
+  font-size: 0.95rem;
+  outline: none;
+}
+
+.admin-group input:focus { border-color: var(--gold); }
+
+.admin-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.admin-actions .mode-btn { padding: 10px 24px; font-size: 1rem; }
+
+#admin-status {
+  margin-top: 12px;
+  font-size: 0.9rem;
+  color: var(--success);
+}
+
 /* ===== Main Game Area ===== */
 #game-area {
   display: flex;
   gap: 16px;
   padding: 16px;
+  padding-top: 76px;
   max-width: 1200px;
   margin: 0 auto;
+  height: 100%;
+  overflow-y: auto;
 }
 
 #player-area {
@@ -531,27 +684,6 @@ section h2 {
 
 #btn-recipe-book:hover { transform: scale(1.1); }
 
-/* Sound Toggle */
-.fab-btn {
-  position: fixed;
-  bottom: 80px;
-  right: 20px;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: none;
-  background: var(--surface);
-  color: #fff;
-  font-size: 1.2rem;
-  cursor: pointer;
-  box-shadow: var(--shadow);
-  z-index: 50;
-  transition: transform 0.2s;
-  border: 1px solid rgba(255,255,255,0.1);
-}
-
-.fab-btn:hover { transform: scale(1.1); }
-
 #recipe-book {
   position: fixed;
   bottom: 80px;
@@ -602,6 +734,33 @@ section h2 {
   font-size: 1.2rem;
   cursor: pointer;
 }
+
+/* ===== Toggle Buttons ===== */
+#game-toggles {
+  position: fixed;
+  bottom: 80px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 50;
+}
+
+#game-toggles .toggle-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: var(--surface);
+  color: #fff;
+  font-size: 1.2rem;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: transform 0.2s, opacity 0.2s;
+}
+
+#game-toggles .toggle-btn:hover { transform: scale(1.1); }
+#game-toggles .toggle-btn.off { opacity: 0.4; }
 
 /* ===== Toast ===== */
 #toast-container {
@@ -675,6 +834,34 @@ section h2 {
   0% { transform: scale(1); }
   50% { transform: scale(0.93); }
   100% { transform: scale(1); }
+}
+
+/* ===== Countdown Overlay ===== */
+#countdown-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  background: rgba(0,0,0,0.85);
+  z-index: 150;
+  font-size: 4rem;
+  font-weight: bold;
+  color: var(--gold);
+}
+
+#countdown-overlay .sub {
+  font-size: 1rem;
+  color: var(--text-dim);
+  margin-top: 12px;
+  font-weight: normal;
+}
+
+@keyframes countPulse {
+  0% { transform: scale(1.5); opacity: 0; }
+  50% { transform: scale(1); opacity: 1; }
+  100% { opacity: 1; }
 }
 
 /* ===== Responsive ===== */
